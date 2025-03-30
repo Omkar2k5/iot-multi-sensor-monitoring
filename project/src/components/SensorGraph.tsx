@@ -11,10 +11,17 @@ interface SensorGraphProps {
   data: { value: number; timestamp: Date }[];
 }
 
+const colorMap = {
+  rose: '#e11d48',
+  sky: '#0284c7',
+  emerald: '#059669',
+  violet: '#7c3aed'
+};
+
 export function SensorGraph({ title, value, unit, Icon, color, data }: SensorGraphProps) {
   const chartData = data.map(point => ({
     value: point.value,
-    time: point.timestamp.toLocaleTimeString(),
+    time: point.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }));
 
   return (
@@ -38,20 +45,28 @@ export function SensorGraph({ title, value, unit, Icon, color, data }: SensorGra
               stroke="#6b7280"
               fontSize={12}
               tickLine={false}
+              tickCount={5}
             />
             <YAxis
               stroke="#6b7280"
               fontSize={12}
               tickLine={false}
               unit={unit}
+              domain={[0, 'auto']}
             />
-            <Tooltip />
+            <Tooltip 
+              contentStyle={{ 
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                border: '1px solid #e5e7eb'
+              }}
+            />
             <Line
               type="monotone"
               dataKey="value"
-              stroke={`var(--${color}-600)`}
+              stroke={colorMap[color as keyof typeof colorMap]}
               strokeWidth={2}
               dot={false}
+              activeDot={{ r: 4 }}
             />
           </LineChart>
         </ResponsiveContainer>

@@ -1,34 +1,47 @@
 import { useEffect, useState } from 'react';
-import { ref, onValue } from 'firebase/database';
-import { db } from '../lib/firebase';
-import { ParsedSensorData } from '../types/sensor';
-import { parseSensorData } from '../utils/sensorDataParser';
-
-const MAX_DATA_POINTS = 10;
+import { ref, onValue, off } from 'firebase/database';
+import { db } from '../services/firebase';
+import { SensorData, parseSensorData } from '../utils/sensorDataParser';
 
 export function useSensorData() {
-  const [currentData, setCurrentData] = useState<ParsedSensorData | null>(null);
-  const [historicalData, setHistoricalData] = useState<ParsedSensorData[]>([]);
+  const [currentData, setCurrentData] = useState<SensorData | null>(null);
+  const [historicalData, setHistoricalData] = useState<SensorData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const currentRef = ref(db, '/current');
+    const currentRef = ref(db, 'current');
+    const motorRef = ref(db, 'motor');
     
     const unsubscribe = onValue(currentRef, (snapshot) => {
-      const rawData = snapshot.val();
-      const parsedData = parseSensorData(rawData);
-      
-      if (parsedData) {
-        setCurrentData(parsedData);
+      if (snapshot.exists()) {
+        const data = parseSensorData(snapshot.val());
+        setCurrentData(prev => ({
+          ...prev,
+          ...data
+        }));
         setHistoricalData(prev => {
-          const newData = [...prev, parsedData];
-          return newData.slice(-MAX_DATA_POINTS);
+          const newData = [...prev, data];
+          // Keep last 20 readings
+          return newData.slice(-20);
         });
       }
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    onValue(motorRef, (snapshot) => {
+      const motorData = snapshot.val();
+      if (motorData) {
+        setCurrentData(prev => ({
+          ...prev,
+          motor: motorData
+        }));
+      }
+    });
+
+    return () => {
+      off(currentRef);
+      off(motorRef);
+    };
   }, []);
 
   return { currentData, historicalData, isLoading };
