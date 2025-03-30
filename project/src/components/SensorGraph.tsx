@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { FC } from 'react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { LucideIcon } from 'lucide-react';
 
@@ -15,62 +15,53 @@ const colorMap = {
   rose: '#e11d48',
   sky: '#0284c7',
   emerald: '#059669',
-  violet: '#7c3aed'
+  violet: '#7c3aed',
+  amber: '#d97706'
 };
 
-export function SensorGraph({ title, value, unit, Icon, color, data }: SensorGraphProps) {
-  const chartData = data.map(point => ({
-    value: point.value,
-    time: point.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }));
+export const SensorGraph: FC<SensorGraphProps> = ({ title, value, unit, Icon, color, data }) => {
+  const formatDate = (timestamp: Date) => {
+    return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
-    <div className="bg-white/50 backdrop-blur-sm rounded-xl border-2 border-gray-200 p-6">
+    <div className="bg-white rounded-lg shadow-md p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Icon className={`w-6 h-6 text-${color}-600`} />
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          <Icon className={`text-${color}-500`} />
+          <h3 className="text-lg font-semibold">{title}</h3>
         </div>
-        <div className="text-2xl font-bold text-gray-900">
+        <div className="text-2xl font-bold">
           {value}
-          <span className="ml-1 text-sm font-normal text-gray-500">{unit}</span>
+          <span className="text-sm text-gray-500 ml-1">{unit}</span>
         </div>
       </div>
-      
-      <div className="h-48">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData}>
-            <XAxis 
-              dataKey="time"
-              stroke="#6b7280"
-              fontSize={12}
-              tickLine={false}
-              tickCount={5}
-            />
-            <YAxis
-              stroke="#6b7280"
-              fontSize={12}
-              tickLine={false}
-              unit={unit}
-              domain={[0, 'auto']}
-            />
-            <Tooltip 
-              contentStyle={{ 
-                backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                border: '1px solid #e5e7eb'
-              }}
-            />
-            <Line
-              type="monotone"
-              dataKey="value"
-              stroke={colorMap[color as keyof typeof colorMap]}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      <ResponsiveContainer width="100%" height={200}>
+        <LineChart data={data}>
+          <XAxis 
+            dataKey="timestamp" 
+            tickFormatter={formatDate}
+            interval="preserveStartEnd"
+            stroke="#64748b"
+          />
+          <YAxis 
+            stroke="#64748b"
+            domain={['auto', 'auto']}
+          />
+          <Tooltip 
+            labelFormatter={(label) => formatDate(new Date(label))}
+            formatter={(value) => [`${value}${unit}`, title]}
+          />
+          <Line
+            type="monotone"
+            dataKey="value"
+            stroke={colorMap[color as keyof typeof colorMap]}
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={true}
+          />
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
-}
+};

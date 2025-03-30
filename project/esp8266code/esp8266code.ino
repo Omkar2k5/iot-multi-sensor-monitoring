@@ -37,11 +37,12 @@ unsigned long previousTime2 = 0;
 const unsigned long interval1 = 5000;      // 5 seconds for sensor data
 const unsigned long interval2 = 21600000;  // 6 hours for data logging
 
-int pValue = 0; // Motor status (0 = OFF, 1 = ON)
-int lValue = 0; // Water level
-int mValue = 0; // Soil moisture
-int hValue = 0; // Humidity
-int tValue = 0; // Temperature
+int pValue = 0;    // Motor status (0 = OFF, 1 = ON)
+int lValue = 0;    // Water level
+int m1Value = 0;   // Soil moisture sensor 1
+int m2Value = 0;   // Soil moisture sensor 2
+int hValue = 0;    // Humidity
+int tValue = 0;    // Temperature
 int manualValue = 0;
 
 void setup() {
@@ -107,12 +108,12 @@ void updateWeatherData() {
   bool dataReceived = false;
   for (int attempt = 0; attempt < 3; attempt++) {
     receiveAndSendToArduino();
-    if (lValue != 0) {  // Check specifically for water level
+    if (lValue != 0) {
       Serial.println("Water Level Reading: " + String(lValue));
       dataReceived = true;
       break;
     }
-    delay(100);  // Short delay between attempts
+    delay(100);
   }
   
   if (!dataReceived) {
@@ -120,11 +121,12 @@ void updateWeatherData() {
     return;
   }
   
-  // Update Firebase
+  // Update Firebase with both moisture values
   if (Firebase.ready()) {
     FirebaseJson json;
     json.add("humidity", hValue);
-    json.add("moistureLevel", mValue);
+    json.add("moistureLevel", m1Value);
+    json.add("moistureLevel2", m2Value);  // Add second moisture level
     json.add("temperature", tValue);
     json.add("waterLevel", lValue);
     json.add("motorStatus", pValue);
@@ -133,7 +135,8 @@ void updateWeatherData() {
     if (Firebase.RTDB.setJSON(&fbdo, "/current", &json)) {
       Serial.println("Data sent successfully to /current.");
       Serial.println("Water Level: " + String(lValue));
-      Serial.println("Moisture: " + String(mValue));
+      Serial.println("Moisture 1: " + String(m1Value));
+      Serial.println("Moisture 2: " + String(m2Value));
       Serial.println("Temperature: " + String(tValue));
       Serial.println("Humidity: " + String(hValue));
     } else {
@@ -149,14 +152,14 @@ void pushWeatherData() {
     FirebaseJson json;
     json.setDoubleDigits(3);
 
-    // Add sensor data to JSON
+    // Add sensor data including both moisture values
     json.add("humidity", hValue);
-    json.add("moistureLevel", mValue);
+    json.add("moistureLevel", m1Value);
+    json.add("moistureLevel2", m2Value);
     json.add("temperature", tValue);
     json.add("waterLevel", lValue);
     json.add("timestamp", millis());
 
-    // Push to the "current" node in Firebase
     if (Firebase.RTDB.pushJSON(&fbdo, "/current", &json)) {
       Serial.println("Data pushed successfully to /current.");
     } else {
@@ -223,7 +226,8 @@ void parseSensorDataString(String inputString) {
 
     // Store previous values
     int prev_hValue = hValue;
-    int prev_mValue = mValue;
+    int prev_m1Value = m1Value;
+    int prev_m2Value = m2Value;
     int prev_tValue = tValue;
     int prev_lValue = lValue;
     int prev_pValue = pValue;
@@ -231,7 +235,8 @@ void parseSensorDataString(String inputString) {
     // Parse values
     int pIndex = inputString.indexOf("P:");
     int lIndex = inputString.indexOf("L:");
-    int mIndex = inputString.indexOf("M:");
+    int m1Index = inputString.indexOf("M1:");
+    int m2Index = inputString.indexOf("M2:");
     int hIndex = inputString.indexOf("H:");
     int tIndex = inputString.indexOf("T:");
 
@@ -245,10 +250,15 @@ void parseSensorDataString(String inputString) {
         lValue = waterLevel.toInt();
         Serial.println("Water Level: " + String(lValue) + " (was: " + String(prev_lValue) + ")");
     }
-    if (mIndex != -1) {
-        String moistureLevel = inputString.substring(mIndex + 2, inputString.indexOf(' ', mIndex));
-        mValue = moistureLevel.toInt();
-        Serial.println("Moisture: " + String(mValue) + " (was: " + String(prev_mValue) + ")");
+    if (m1Index != -1) {
+        String moisture1 = inputString.substring(m1Index + 3, inputString.indexOf(' ', m1Index));
+        m1Value = moisture1.toInt();
+        Serial.println("Moisture 1: " + String(m1Value) + " (was: " + String(prev_m1Value) + ")");
+    }
+    if (m2Index != -1) {
+        String moisture2 = inputString.substring(m2Index + 3, inputString.indexOf(' ', m2Index));
+        m2Value = moisture2.toInt();
+        Serial.println("Moisture 2: " + String(m2Value) + " (was: " + String(prev_m2Value) + ")");
     }
     if (hIndex != -1) {
         String humidity = inputString.substring(hIndex + 2, inputString.indexOf('%', hIndex));

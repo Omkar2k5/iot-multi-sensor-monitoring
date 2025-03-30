@@ -7,6 +7,7 @@ import SignalIndicator from './SignalIndicator';
 
 export const Dashboard: FC = () => {
   const { currentData, historicalData, isLoading } = useSensorData();
+  const MOISTURE_THRESHOLD = 40;
 
   if (isLoading || !currentData) {
     return (
@@ -15,6 +16,10 @@ export const Dashboard: FC = () => {
       </div>
     );
   }
+
+  // Calculate motor status based on moisture levels
+  const isMotorOn = currentData.moistureLevel < MOISTURE_THRESHOLD || 
+                    currentData.moistureLevel2 < MOISTURE_THRESHOLD;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
@@ -49,6 +54,13 @@ export const Dashboard: FC = () => {
             unit="%"
             Icon={Sprout}
             color="violet"
+          />
+          <SensorCard
+            title="Moisture Level 2"
+            value={currentData.moistureLevel2}
+            unit="%"
+            Icon={Sprout}
+            color="amber"
           />
         </div>
 
@@ -85,10 +97,21 @@ export const Dashboard: FC = () => {
             color="violet"
             data={historicalData.map(d => ({ value: d.moistureLevel, timestamp: new Date(d.timestamp) }))}
           />
+          <SensorGraph
+            title="Moisture Level 2"
+            value={currentData.moistureLevel2}
+            unit="%"
+            Icon={Sprout}
+            color="amber"
+            data={historicalData.map(d => ({ 
+              value: d.moistureLevel2, 
+              timestamp: new Date(d.timestamp) 
+            }))}
+          />
         </div>
 
         <SignalIndicator 
-          isMotorOn={currentData?.motor?.status === "ON" || currentData?.current?.motorStatus === 1}
+          isMotorOn={isMotorOn}
         />
       </div>
     </div>

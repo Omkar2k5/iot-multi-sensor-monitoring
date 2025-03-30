@@ -7,42 +7,49 @@ export function useSensorData() {
   const [currentData, setCurrentData] = useState<SensorData | null>(null);
   const [historicalData, setHistoricalData] = useState<SensorData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const MOISTURE_THRESHOLD = 40;
 
   useEffect(() => {
     const currentRef = ref(db, 'current');
-    const motorRef = ref(db, 'motor');
     
     const unsubscribe = onValue(currentRef, (snapshot) => {
       if (snapshot.exists()) {
-        const data = parseSensorData(snapshot.val());
-        setCurrentData(prev => ({
-          ...prev,
-          ...data
-        }));
+        const data = snapshot.val();
+        // Get moisture values and check threshold
+        const moisture1 = Number(data.moistureLevel) || 0;
+        const moisture2 = Number(data.moisturelevel2) || 0;
+        const shouldMotorBeOn = moisture1 < MOISTURE_THRESHOLD || moisture2 < MOISTURE_THRESHOLD;
+
+        const parsedData = {
+          ...parseSensorData(data),
+          motor: { status: shouldMotorBeOn ? 'ON' : 'OFF' },
+          timestamp: Date.now() // Ensure we have a current timestamp
+        };
+
+        setCurrentData(parsedData);
+        
+        // Update historical data with the new reading
         setHistoricalData(prev => {
-          const newData = [...prev, data];
-          // Keep last 20 readings
+          const newData = [...prev, parsedData];
+          // Keep only the last 20 readings
           return newData.slice(-20);
         });
       }
       setIsLoading(false);
     });
 
-    onValue(motorRef, (snapshot) => {
-      const motorData = snapshot.val();
-      if (motorData) {
-        setCurrentData(prev => ({
-          ...prev,
-          motor: motorData
-        }));
-      }
-    });
-
     return () => {
+      unsubscribe();
       off(currentRef);
-      off(motorRef);
     };
   }, []);
 
-  return { currentData, historicalData, isLoading };
+  return { 
+    currentData, 
+    historicalData: historicalData.map(data => ({
+      ...data,
+      timestamp: new Date(data.timestamp)
+    })), 
+    isLoading 
+  };
 }

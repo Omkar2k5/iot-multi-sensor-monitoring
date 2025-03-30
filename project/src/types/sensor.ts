@@ -3,6 +3,7 @@ export interface SensorData {
   humidity: number;
   waterLevel: number;
   moistureLevel: number;
+  moistureLevel2: number;
   timestamp: number;
   motor?: {
     status: string;
@@ -11,6 +12,7 @@ export interface SensorData {
     motorStatus: number;
     humidity: number;
     moistureLevel: number;
+    moistureLevel2: number;
     temperature: number;
     timestamp: number;
     waterLevel: number;
@@ -22,5 +24,6 @@ export interface ParsedSensorData {
   humidity: number;
   waterLevel: number;
   moistureLevel: number;
+  moistureLevel2: number;
   timestamp: Date;
 }

@@ -4,6 +4,7 @@
 // Define pins
 const int motorPin = 7;
 #define WATER_MOISTURE_PIN A0
+#define WATER_MOISTURE_PIN2 A2  // Add second moisture sensor pin
 #define WATER_LEVEL_PIN A1
 #define DHT11_PIN 2        // Digital pin 2 for DHT11
 #define DHTTYPE DHT11
@@ -15,8 +16,7 @@ SoftwareSerial mySerial(10, 11);  // RX (10), TX (11)
 DHT dht(DHT11_PIN, DHTTYPE);
 
 // Update thresholds for better moisture control
-int moistureThreshold_LOW = 30;   // Turn ON pump when moisture below this
-int moistureThreshold_HIGH = 70;  // Turn OFF pump when moisture above this
+int moistureThreshold = 40;   // New single threshold value
 
 // Global variables
 String message;
@@ -96,41 +96,55 @@ void loop() {
       delay(1000);
     }
 
-    // Read other sensors
+    // Read moisture sensors
     int value_water_moisture = 100 - map(analogRead(WATER_MOISTURE_PIN), 400, 1023, 0, 100);
     value_water_moisture = constrain(value_water_moisture, 0, 100);
+    
+    // Read second moisture sensor
+    int value_water_moisture2 = 100 - map(analogRead(WATER_MOISTURE_PIN2), 400, 1023, 0, 100);
+    value_water_moisture2 = constrain(value_water_moisture2, 0, 100);
 
     // Debug output
     Serial.println("\nSensor Values:");
     Serial.println("Water Level (raw): " + String(raw_water_level));
     Serial.println("Water Level (mapped): " + String(value_water_level) + "%");
-    Serial.println("Moisture (raw): " + String(analogRead(WATER_MOISTURE_PIN)));
-    Serial.println("Moisture (mapped): " + String(value_water_moisture) + "%");
+    Serial.println("Moisture 1 (raw): " + String(analogRead(WATER_MOISTURE_PIN)));
+    Serial.println("Moisture 1 (mapped): " + String(value_water_moisture) + "%");
+    Serial.println("Moisture 2 (raw): " + String(analogRead(WATER_MOISTURE_PIN2)));
+    Serial.println("Moisture 2 (mapped): " + String(value_water_moisture2) + "%");
     Serial.println("Humidity: " + String(value_humidity) + "%");
     Serial.println("Temperature: " + String(value_temperature) + "°C");
 
-    // Automatic motor control based on moisture level
-    if (value_water_moisture < moistureThreshold_LOW) {
-      // Turn ON pump if moisture is too low and water level is sufficient
+    // New motor control logic based on either sensor being below threshold
+    if (value_water_moisture < moistureThreshold || value_water_moisture2 < moistureThreshold) {
+      // Turn ON pump if either moisture sensor is too low and water level is sufficient
       if (value_water_level > 20) {  // Make sure there's enough water
         value_motor_status = 1;
-        Serial.println("Motor ON - Low Moisture");
+        Serial.println("Motor ON - Low Moisture Detected");
+        if (value_water_moisture < moistureThreshold) {
+          Serial.println("Sensor 1 triggered motor: " + String(value_water_moisture) + "%");
+        }
+        if (value_water_moisture2 < moistureThreshold) {
+          Serial.println("Sensor 2 triggered motor: " + String(value_water_moisture2) + "%");
+        }
       } else {
         value_motor_status = 0;
         Serial.println("Motor OFF - Water Level Too Low");
       }
     } 
-    else if (value_water_moisture > moistureThreshold_HIGH) {
-      // Turn OFF pump if moisture is high enough
+    else if (value_water_moisture >= moistureThreshold && value_water_moisture2 >= moistureThreshold) {
+      // Turn OFF pump only if both moisture levels are above threshold
       value_motor_status = 0;
-      Serial.println("Motor OFF - Moisture Sufficient");
+      Serial.println("Motor OFF - Both Moisture Levels Sufficient");
+      Serial.println("Sensor 1: " + String(value_water_moisture) + "%");
+      Serial.println("Sensor 2: " + String(value_water_moisture2) + "%");
     }
     
     // Apply motor control
     motorControl();
 
     // Send sensor data with retries
-    sendSensorDataToESP(value_humidity, value_water_moisture, value_water_level, value_temperature);
+    sendSensorDataToESP(value_humidity, value_water_moisture, value_water_moisture2, value_water_level, value_temperature);
   }
 }
 
@@ -140,10 +154,11 @@ void motorControl() {
   Serial.println(value_motor_status ? "ON" : "OFF");
 }
 
-void sendSensorDataToESP(float humidity, int moisture, int waterLevel, float temperature) {
+void sendSensorDataToESP(float humidity, int moisture1, int moisture2, int waterLevel, float temperature) {
   String dataToSend = "P:" + String(value_motor_status) +
                       " L:" + String(waterLevel) +
-                      " M:" + String(moisture) +
+                      " M1:" + String(moisture1) +
+                      " M2:" + String(moisture2) +  // Add moisture2 to the data string
                       " H:" + String((int)humidity) + "%" +
                       " T:" + String((int)temperature) + "C";
 
